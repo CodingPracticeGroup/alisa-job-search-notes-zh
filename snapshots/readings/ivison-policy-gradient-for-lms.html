@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      (function() {
+        var theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        try {
+          var savedTheme = localStorage.getItem('theme');
+          if (savedTheme === 'dark' || savedTheme === 'light') theme = savedTheme;
+        } catch (error) {}
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script><!-- Begin Jekyll SEO tag v2.9.0 -->
+<title>Introduction to Policy Gradient for LMs | Hamish Ivison</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="Introduction to Policy Gradient for LMs" />
+<meta name="author" content="Hamish Ivison" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="A basic introduction to policy gradient for language models." />
+<meta name="twitter:description" property="og:description" content="A basic introduction to policy gradient for language models." />
+<link rel="canonical" href="https://ivison.id.au/2026/02/09/policy-gradient.html" />
+<meta property="og:url" content="https://ivison.id.au/2026/02/09/policy-gradient.html" />
+<meta property="og:site_name" content="Hamish Ivison" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-02-09T00:00:00+00:00" />
+<meta property="article:modified_time" content="2026-02-09T00:00:00+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Introduction to Policy Gradient for LMs" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Hamish Ivison"},"dateModified":"2026-02-09T00:00:00+00:00","datePublished":"2026-02-09T00:00:00+00:00","description":"A basic introduction to policy gradient for language models.","headline":"Introduction to Policy Gradient for LMs","mainEntityOfPage":{"@type":"WebPage","@id":"https://ivison.id.au/2026/02/09/policy-gradient.html"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"https://ivison.id.au/assets/static/me-400.jpg"},"name":"Hamish Ivison"},"url":"https://ivison.id.au/2026/02/09/policy-gradient.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/css/site.css?v=1792083528"><link type="application/atom+xml" rel="alternate" href="https://ivison.id.au/feed.xml" title="Hamish Ivison" />
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+  }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+<script defer src="/assets/js/site.js?v=1792083528"></script>
+
+    
+  </head>
+<body><header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" rel="author" href="/"><span class="site-title-accent">H</span>amish <span class="site-title-accent">I</span>vison</a>
+    <div class="header-controls">
+      <nav class="site-nav" aria-label="Main navigation"><a class="page-link" href="/blog.html">Blog</a></nav>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch color theme" aria-pressed="false">
+        <span class="theme-toggle-icon theme-toggle-sun" aria-hidden="true">☀︎</span>
+        <span class="theme-toggle-icon theme-toggle-moon" aria-hidden="true">☾</span>
+      </button>
+    </div>
+  </div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Introduction to Policy Gradient for LMs</h1>
+    <p class="post-meta"><time class="dt-published" datetime="2026-02-09T00:00:00+00:00" itemprop="datePublished">
+        Feb 9, 2026
+      </time><span class="post-meta-separator" aria-hidden="true">·</span>
+      
+      
+      <a href="/blog.html" class="post-tag">blog</a>
+    
+      
+      <a href="/technical.html" class="post-tag">technical</a>
+    
+      
+      <a href="/rl.html" class="post-tag">rl</a>
+    
+      
+      <a href="/nlp.html" class="post-tag">nlp</a>
+    </p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <p>These are a lightly adapted set of notes for a ‘RL101’ lecture I gave for some research groups meetings. These aim to be a reasonably thorough introduction to policy gradient, specifically in the context of language models. I go far enough to get to CISPO (which honestly is pretty much one of the better algorithms out there right now), but I don’t cover all the way to PPO.
+These notes are adapted from when I took RL here at UW.</p>
+
+<h2 id="terminology">Terminology</h2>
+
+<p>We will use the standard Markov Decision Process (MDP) model</p>
+
+\[\mathcal{M} = (\mathcal{S},\mathcal{A},P,r,\gamma,\rho_0).\]
+
+<table>
+  <thead>
+    <tr>
+      <th><strong>Term</strong></th>
+      <th><strong>MDP notation</strong></th>
+      <th><strong>LM analogue</strong></th>
+      <th><strong>LM notation</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>State</td>
+      <td>$s\in\mathcal{S}$</td>
+      <td>prompt + prefix tokens</td>
+      <td>$s_t \equiv x_{0:t}$</td>
+    </tr>
+    <tr>
+      <td>Action</td>
+      <td>$a\in\mathcal{A}$</td>
+      <td>next token</td>
+      <td>$a_t \equiv x_{t+1}$</td>
+    </tr>
+    <tr>
+      <td>Transition</td>
+      <td>$P(s’\mid s,a)$</td>
+      <td>append token (usually deterministic)</td>
+      <td>$s_{t+1}=(s_t,a_t)$</td>
+    </tr>
+    <tr>
+      <td>Reward</td>
+      <td>$r(s,a)$</td>
+      <td>terminal score / reward model</td>
+      <td>$r_T$ (often at EOS)</td>
+    </tr>
+    <tr>
+      <td>Discount</td>
+      <td>$\gamma\in[0,1)$</td>
+      <td>(optional) token-position discount</td>
+      <td>$\gamma$</td>
+    </tr>
+    <tr>
+      <td>Start state dist.</td>
+      <td>$\rho_0$</td>
+      <td>prompt distribution</td>
+      <td>$p(\text{prompt})$</td>
+    </tr>
+    <tr>
+      <td>Policy</td>
+      <td>$\pi_\theta(a\mid s)$</td>
+      <td>LM next-token distribution</td>
+      <td>$p_\theta(x_{t+1}\mid x_{0:t})$</td>
+    </tr>
+    <tr>
+      <td>Trajectory</td>
+      <td>$\tau=(s_0,a_0,\dots,s_T)$</td>
+      <td>completion / rollout</td>
+      <td>$\tau \equiv x_{0:T}$</td>
+    </tr>
+    <tr>
+      <td>Return</td>
+      <td>$R(\tau)=\sum_{t=0}^{T-1}\gamma^t r(s_t,a_t)$</td>
+      <td>scalar score for completion</td>
+      <td>$R(x_{0:T})$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Policy / LM distribution.</strong>
+In general RL notation, our policy is a conditional distribution $\pi_\theta(a\mid s)$.
+For an autoregressive language model, we will identify</p>
+
+\[\pi_\theta(a_t\mid s_t) \equiv p_\theta(x_{t+1}\mid x_{0:t}).\]
+
+<p>With this identification, the probability of a full completion (trajectory) factors as</p>
+
+\[\pi_\theta(\tau) \equiv p_\theta(x_{0:T}) = p(x_0)\prod_{t=0}^{T-1} p_\theta(x_{t+1}\mid x_{0:t}),\]
+
+<p>where $p(x_0)$ denotes the prompt distribution (or is treated as fixed/conditioned on).</p>
+
+<p>Note that we call discounting optional because most LM RL work sets $\gamma = 1$ and only has a single reward at the end of the trajectory. However, sometimes we change this (e.g., in scenarios where dense reward is available).</p>
+
+<h2 id="deriving-pg">Deriving PG</h2>
+
+<p>In policy gradient, we assume a differentiable, parameterized policy $\pi_\theta$ and update parameters by (stochastic) gradient <em>ascent</em> on $J(\theta)$:</p>
+
+\[\theta \leftarrow \theta + \alpha\,\widehat{\nabla_\theta J(\theta)}.\]
+
+<p>An important initial identity is the log-deriv trick:</p>
+
+\[\begin{aligned}
+\nabla_\theta \log \pi_\theta(\tau)
+&amp;= \frac{\nabla_\theta \pi_\theta(\tau)}{\pi_\theta(\tau)}
+\quad\text{(when $\pi_\theta(\tau)&gt;0$)}\\[0.5em]
+\nabla_\theta \pi_\theta(\tau)
+&amp;= \pi_\theta(\tau)\,\nabla_\theta \log \pi_\theta(\tau)
+\end{aligned}\]
+
+<p>We want to maximise our expected reward, that is we set:</p>
+
+\[\begin{aligned}
+J(\theta) &amp;= \mathbb{E}_{\tau\sim\pi_\theta}[R(\tau)] \\
+&amp;= \int \pi_\theta(\tau)\,R(\tau)\,d\tau
+\end{aligned}\]
+
+<p>Now, let’s compute the derivative:</p>
+
+\[\begin{aligned}
+\nabla_\theta J(\theta)
+&amp;= \nabla_\theta \int \pi_\theta(\tau)\,R(\tau)\,d\tau \\
+&amp;= \int \nabla_\theta\pi_\theta(\tau)\,R(\tau)\,d\tau \\
+&amp;= \int \pi_\theta(\tau)\,\nabla_\theta\log\pi_\theta(\tau)\,R(\tau)\,d\tau
+\end{aligned}\]
+
+<p>Then, we expand out the trajectory logprobs. Finally, expand the trajectory log-probability:</p>
+
+\[\begin{aligned}
+\log\pi_\theta(\tau)
+&amp;= \log\rho_0(s_0) + \sum_{t=0}^{T-1}\log\pi_\theta(a_t\mid s_t) + \sum_{t=0}^{T-1}\log P(s_{t+1}\mid s_t,a_t) \\[0.5em]
+\nabla_\theta\log\pi_\theta(\tau) &amp;= \nabla_\theta\log\rho_0(s_0) + \nabla_\theta\sum_{t=0}^{T-1}\log\pi_\theta(a_t\mid s_t) + \nabla_\theta\sum_{t=0}^{T-1}\log P(s_{t+1}\mid s_t,a_t) \\
+&amp;= \sum_{t=0}^{T-1}\nabla_\theta\log\pi_\theta(a_t\mid s_t)
+\end{aligned}\]
+
+<p>Interestingly, the transition dynamics disappear completely! Although, of course, they still are affecting the trajectory distribution implicitly. So we can just plug that right in:</p>
+
+\[\nabla_\theta J(\theta)
+= \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1}\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,R(\tau)\right]\]
+
+<p>Next, we will define the “reward-to-go” (the future return from time $t$):</p>
+
+\[G_t \triangleq \sum_{k=t}^{T-1} \gamma^{k-t}\,r(s_k,a_k)\]
+
+<p>Importantly, we can note that the reward-to-go is the only thing that matters in our derivative.
+Write the full return as a “past” part plus a “future” part:</p>
+
+\[\begin{aligned}
+R(\tau)
+&amp;= \sum_{k=0}^{T-1} \gamma^k r(s_k,a_k)\\
+&amp;= \underbrace{\sum_{k=0}^{t-1} \gamma^k r(s_k,a_k)}_{\triangleq\,R_{&lt;t}} + \underbrace{\sum_{k=t}^{T-1} \gamma^k r(s_k,a_k)}_{\triangleq\,G_t}
+\end{aligned}\]
+
+<p>Then, for any fixed time $t$,</p>
+
+\[\begin{aligned}
+\mathbb{E}_{\tau\sim\pi_\theta}\big[\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,R(\tau)\big]
+&amp;= \mathbb{E}_{\tau\sim\pi_\theta}\big[\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,(G_t + R_{&lt;t})\big]\\
+&amp;= \mathbb{E}_{\tau\sim\pi_\theta}\big[\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,G_t\big]
++ \underbrace{\mathbb{E}_{\tau\sim\pi_\theta}\big[\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,R_{&lt;t}\big]}_{=0}
+\end{aligned}\]
+
+<p>The last term is zero because conditioning on $s_t$, $R_{&lt;t}$ is a valid baseline. Let’s put a pin in this for a second, and come back to it later.</p>
+
+<p>This gives us our REINFORCE loss:</p>
+
+\[\mathcal{L}_{\text{REINFORCE}}(\theta)
+\;\triangleq\; -\,\mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \log\pi_\theta(a_t\mid s_t)\,G_t\right]\]
+
+<p>And our basic algorithm:</p>
+
+<ol>
+  <li>Initialize policy parameters $\theta$.</li>
+  <li>Repeat for iterations $k=0,1,2,\dots$:
+    <ol>
+      <li>Sample a batch of trajectories $\{\tau^{(i)}\}_{i=1}^N$ by rolling out the current policy $\pi_\theta$.</li>
+      <li>For each trajectory $\tau^{(i)}=(s_0^{(i)},a_0^{(i)},\dots,s_T^{(i)})$, compute the rewards $r(s_t^{(i)},a_t^{(i)})$ and reward-to-go values $G_t^{(i)}$ for all $t$.</li>
+      <li>Form the Monte Carlo gradient estimate (using reward-to-go):
+\(\widehat{\nabla_\theta J(\theta)}
+= \frac{1}{N}\sum_{i=1}^N\sum_{t=0}^{T-1}\nabla_\theta\log\pi_\theta\big(a_t^{(i)}\mid s_t^{(i)}\big)\,G_t^{(i)}\)</li>
+      <li>Update the parameters by gradient ascent:
+\(\theta \leftarrow \theta + \alpha\,\widehat{\nabla_\theta J(\theta)}\)</li>
+    </ol>
+  </li>
+</ol>
+
+<h3 id="issues-with-reinforce">Issues with REINFORCE</h3>
+
+<p>There are three core issues with REINFORCE:</p>
+
+<ol>
+  <li><strong>High Variance</strong>: The reward values can vary a bunch, and even have weird scale. Consider a reward that’s always negative. Basically, we want to normalize things a little.</li>
+  <li><strong>Unknown step size</strong>: We don’t really know the right learning rate to use, especially since this actually might change over training, unlike regular ML.</li>
+  <li><strong>Data reuse</strong>: We can’t reuse data from prior loops, since we have defined our loss and gradient over the current policy.</li>
+</ol>
+
+<p>I’ll cover two of these, and step size is… less of a big issue for things like CISPO, but is important and part of the motivation for developing things like TRPO and PPO.
+Let’s deal with variance first, since that’s the most important thing.</p>
+
+<h3 id="baselining">Baselining</h3>
+
+<p>A standard variance-reducing trick is to subtract a baseline that only relies on the current state:</p>
+
+\[\nabla_\theta J(\theta)
+= \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta\log\pi_\theta(a_t\mid s_t)\,(G_t - b(s_t))\right]\]
+
+<p>We need to show two core things: (1) that doing this is unbiased, and doesn’t change our result; (2) that this actually reduces variance.</p>
+
+<h4 id="unbiasedness">Unbiasedness</h4>
+
+<p>Let’s split out our loss:</p>
+
+\[\begin{aligned}
+\nabla_\theta J(\theta)
+&amp;= \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta\log\pi_\theta(a_t\mid s_t)\,(G_t - b(s_t))\right] \\
+&amp;= \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta\log\pi_\theta(a_t\mid s_t)\,G_t\right]
+- \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta\log\pi_\theta(a_t\mid s_t)\,b(s_t)\right]
+\end{aligned}\]
+
+<p>Then, we will just consider the baseline term. Let’s consider what happens at a single time step $t$. The key thing is we split up the expectation:</p>
+
+\[\begin{aligned}
+\mathbb{E}_{\tau\sim\pi_\theta}\big[\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,b(s_t)\big]
+&amp;= \mathbb{E}_{s_t,a_t\sim\pi_\theta}\big[\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,b(s_t)\big]\\
+&amp;= \mathbb{E}_{s_t}\left[\mathbb{E}_{a_t\sim\pi_\theta(\cdot\mid s_t)}\big[\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,b(s_t)\ \big|\ s_t\big]\right]\\
+&amp;= \mathbb{E}_{s_t}\left[b(s_t)\,\mathbb{E}_{a_t\sim\pi_\theta(\cdot\mid s_t)}\big[\nabla_\theta\log\pi_\theta(a_t\mid s_t)\big]\right]\\
+&amp;= \mathbb{E}_{s_t}\left[b(s_t)\,\sum_a \pi_\theta(a\mid s_t)\,\nabla_\theta\log\pi_\theta(a\mid s_t)\right]\\
+&amp;= \mathbb{E}_{s_t}\left[b(s_t)\,\sum_a \nabla_\theta\pi_\theta(a\mid s_t)\right]\\
+&amp;= \mathbb{E}_{s_t}\left[b(s_t)\,\nabla_\theta\sum_a \pi_\theta(a\mid s_t)\right]
+= \mathbb{E}_{s_t}\left[b(s_t)\,\nabla_\theta 1\right]
+= 0
+\end{aligned}\]
+
+<p>Therefore</p>
+
+\[\mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta\log\pi_\theta(a_t\mid s_t)\,b(s_t)\right] = 0,\]
+
+<p>so replacing $G_t$ by $G_t-b(s_t)$ leaves the expectation unchanged (i.e., the estimator remains unbiased).</p>
+
+<p>Note that this is why up to the current state is okay: if the current action was included, then we couldn’t move the baseline out of the expectation in the above proof. So we can depend on anything apart from the current action for our baseline.</p>
+
+<h4 id="variance-reduction">Variance Reduction</h4>
+
+<p>Now we know we can do this, we need to consider what would be a good baseline that can reduce our variance?</p>
+
+<p>The math for optimal baselines gets more involved, and I couldn’t find a clear explanation, so let’s stick with a higher-level approximation<sup id="fnref:seita"><a href="#fn:seita" class="footnote" rel="footnote" role="doc-noteref">1</a></sup>. These approximations are not strictly valid in general, but they help us build some intuition for why we can reduce variance with baselines. Consider computing the variance of a single trajectory:</p>
+
+\[\begin{aligned}
+\mathrm{Var}\Big(\sum_{t=0}^{T-1}\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,(G_t-b(s_t))\Big)
+&amp;\approx^{(i)} \sum_{t=0}^{T-1}\mathbb{E}_{\tau}\Big[\big(\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,(G_t-b(s_t))\big)^2\Big]\\
+&amp;\approx^{(ii)} \sum_{t=0}^{T-1}\mathbb{E}_{\tau}\Big[\big(\nabla_\theta\log\pi_\theta(a_t\mid s_t)\big)^2\Big]\,\mathbb{E}_{\tau}\Big[\big(G_t-b(s_t)\big)^2\Big]
+\end{aligned}\]
+
+<p>Here (i) drops cross-covariance terms between different time steps, and (ii) further treats the score term and the (centered) return term as approximately independent. We can’t control the variance over the logprobs, so instead we want to minimize just $G_t - b(s_t)$! This suggests that a good baseline is our best guess at $G_t$ based on $s_t$, <strong>which is exactly our value function!</strong></p>
+
+<p>This gives us the <strong>advantage function</strong>:</p>
+
+\[A_{\pi_\theta}(s_t, a_t) = G_t - \hat{V}_{\pi_\theta}(s_t)\]
+
+<p>Note here that $G_t$ is the reward we get from doing $a_t$ in state $s_t$. That is, it is (an unbiased Monte Carlo estimate of) the Q-value. Intuitively, we are replacing <strong>weighting by absolute reward</strong> with <strong>weighting by the improvement of the action over the average action taken by the policy</strong>. This intuitively reduces variance since we are sort of taking into account “how good” our policy is already.</p>
+
+<h3 id="re-using-old-data">Re-using Old Data</h3>
+
+<p>Let’s cover the other big issue with REINFORCE: data reuse.</p>
+
+<p>We can’t really re-use old data in our current setup, since we derived everything under the assumption that we drew our trajectories from our current model ($\tau \sim \pi_\theta$). This means that once we take a gradient step, the old trajectories are technically coming from a different distribution ($\tau \sim \pi_{\theta_{t-1}}$).</p>
+
+<p>We can apply <strong>importance weighting</strong> to fix this. The core idea is that we can draw samples from a different distribution so long as we reweight the samples with the probabilities under our current distribution. To simplify, let’s define</p>
+
+\[\begin{aligned}
+\mathbb{E}_{\tau\sim\pi_{\theta}}\big[f(\tau)\big]
+&amp;= \int \pi_{\theta}(\tau)\,f(\tau)\,d\tau \\
+&amp;= \int \pi_{\theta_{\mathrm{old}}}(\tau)\,\frac{\pi_{\theta}(\tau)}{\pi_{\theta_{\mathrm{old}}}(\tau)}\,f(\tau)\,d\tau \\
+&amp;= \mathbb{E}_{\tau\sim\pi_{\theta_{\mathrm{old}}}}\Big[w(\tau)\,f(\tau)\Big]
+\end{aligned}\]
+
+<p>where</p>
+
+\[w(\tau) \triangleq \frac{\pi_{\theta}(\tau)}{\pi_{\theta_{\mathrm{old}}}(\tau)}
+= \prod_{t=0}^{T-1}\frac{\pi_{\theta}(a_t\mid s_t)}{\pi_{\theta_{\mathrm{old}}}(a_t\mid s_t)}\]
+
+<p>So we can just apply this to our original policy-gradient expression:</p>
+
+\[\begin{aligned}
+\nabla_\theta J(\theta)
+&amp;= \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1}\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,G_t\right]\\
+&amp;= \mathbb{E}_{\tau\sim\pi_{\theta_{\mathrm{old}}}}\left[w(\tau)\,\sum_{t=0}^{T-1}\nabla_\theta\log\pi_\theta(a_t\mid s_t)\,G_t\right]
+\end{aligned}\]
+
+<p>We can also define the ratio on the token-level:</p>
+
+\[r_{t}(\theta) = \frac{\pi_{\theta}(a_t\mid s_t)}{\pi_{\theta_{\mathrm{old}}}(a_t\mid s_t)}\]
+
+<h2 id="cispo">CISPO</h2>
+
+<p>Actually, we basically already have enough to get the current SOTA RL algorithm, CISPO<sup id="fnref:cispo"><a href="#fn:cispo" class="footnote" rel="footnote" role="doc-noteref">2</a></sup>!</p>
+
+<p>CISPO’s loss is:</p>
+
+\[J_{\mathrm{CISPO}}(\theta)
+= \mathbb{E}_{(q,a)\sim\mathcal{D},\,\{o^i\}_{i=1}^G\sim\pi_{\theta_{\mathrm{old}}}(\cdot\mid q)}\left[
+\frac{1}{\sum_{i=1}^G |o^i|}
+\sum_{i=1}^G\sum_{t=1}^{|o^i|}
+\mathrm{sg}\big(r_{i,t}(\theta)\big)\,\hat A_{i,t}\,\log \pi_\theta\big(o^i_t\mid q,o^i_{&lt;t}\big)
+\right]\]
+
+<p>Note that we are averaging over groups here (the $i$ index) and over timesteps (number of tokens in a given rollout). $\mathrm{sg}$ stands for “stop gradient”, and is used to avoid backpropagating through the logprobs used in computing the importance ratio $r$. $G$ is our group size (number of rollouts sharing a prompt), which is used to compute the advantage $\hat A$:</p>
+
+\[\hat A_{i,t}
+= \frac{R_i - \mathrm{mean}(\{R_j\}_{j=1}^G)}{\mathrm{std}(\{R_j\}_{j=1}^G)}\]
+
+<p>Note that this is intuitively capturing exactly what we were doing before, but using the group estimates instead of a learned function for the value estimates.</p>
+
+<h2 id="other-advantage-estimates">Other Advantage Estimates</h2>
+
+<p>Some other interesting advantage estimates:</p>
+
+<ol>
+  <li><strong>VinePPO</strong><sup id="fnref:vineppo"><a href="#fn:vineppo" class="footnote" rel="footnote" role="doc-noteref">3</a></sup>: Use token-level Monte Carlo rollouts to estimate value. Incredibly expensive but arguably the best way to do it.</li>
+  <li><strong>GIGPO</strong><sup id="fnref:gigpo"><a href="#fn:gigpo" class="footnote" rel="footnote" role="doc-noteref">4</a></sup>: Tie together similar states by just using token similarity. Works really well for agentic state-based tasks (e.g., navigating a web browser), where we have access to the underlying state and that state is simple.</li>
+  <li><strong>REINFORCE++</strong><sup id="fnref:reinforcepp"><a href="#fn:reinforcepp" class="footnote" rel="footnote" role="doc-noteref">5</a></sup>: Just use the average reward in your batch as the value estimate! Makes sense if your tasks are all similar.</li>
+  <li><strong>RLOO</strong><sup id="fnref:rloo"><a href="#fn:rloo" class="footnote" rel="footnote" role="doc-noteref">6</a></sup>: Basically GRPO, but remove the standard deviation and use a leave-one-out approach instead of doing average over all samples.</li>
+</ol>
+
+<div class="aside">
+<strong>Final comment</strong>
+
+<p>You might wonder why using the reward from trajectories is valid to include in the baseline for GRPO and other baselines like REINFORCE++ — doesn't this include the current action? Actually, this is a special case that is fine!</p>
+
+<p>Firstly, using <em>other</em> trajectories is completely valid, since they are completely independent of our current action (different samples entirely). But the reward of our current trajectory is the weird part. Let's consider using the average batch reward-to-go as a baseline:</p>
+
+$$
+b(s_t) \equiv \frac{1}{B}\sum_{n=1}^{B} G^n_t \quad\text{, where B is our batch size}
+$$
+
+Let $x$ denote our current sample in the batch. Then:
+
+$$
+\begin{aligned}
+\nabla_\theta J(\theta)
+&amp;= \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta\log\pi_\theta(a_t\mid s_t)\,(G^x_t - b(s_t))\right]\\
+&amp;= \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta\log\pi_\theta(a_t\mid s_t)\,(G^x_t - \frac{1}{B}\sum_{n=1}^{B} G^n_t)\right] \\
+&amp;= \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta\log\pi_\theta(a_t\mid s_t)\,(G^x_t -  \frac{1}{B}G^x_t - \frac{1}{B}\sum_{n=1,\ne x}^{B}G^n_t)\right] \\
+&amp;= \mathbb{E}_{\tau\sim\pi_\theta}\left[\sum_{t=0}^{T-1} \nabla_\theta\log\pi_\theta(a_t\mid s_t)\,(\frac{B-1}{B}G^x_t - \frac{1}{B}\sum_{n=1,\ne x}^{B}G^n_t)\right]
+\end{aligned}
+$$
+
+<p>We know using $\frac{1}{B}\sum_{n=1,\ne x}^{B}G^n_t$ is fine as a baseline, so we just need to consider $\frac{B-1}{B}G^x_t$. It should be intuitively clear that this just scales down the gradient by $\frac{B-1}{B}$, and so does not bias the final result. Strictly, using a leave-one-out estimate as in RLOO is better to avoid this scaling, but it does not hurt!</p>
+
+<p>Crucially, this only works because <em>we used the reward itself in the baselining</em>. Other functions involving $a_t$ would be invalid to use.</p>
+</div>
+
+<p>And that’s it! Thanks for listening!</p>
+
+<hr />
+
+<h2 id="references">References</h2>
+
+<p>See also: Weng, L. (2018). <a href="https://lilianweng.github.io/posts/2018-04-08-policy-gradient/">Policy Gradient Algorithms</a>; Sutton &amp; Barto (1998). <em>Reinforcement Learning: An Introduction (Chapter 13)</em>.</p>
+<div class="footnotes" role="doc-endnotes">
+  <ol>
+    <li id="fn:seita">
+      <p>Seita, D. (2017). <a href="https://danieltakeshi.github.io/2017/03/28/going-deeper-into-reinforcement-learning-fundamentals-of-policy-gradients/">Going Deeper Into Reinforcement Learning: Fundamentals of Policy Gradients</a>. <a href="#fnref:seita" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+    <li id="fn:cispo">
+      <p>MiniMax et al. (2025). <a href="https://arxiv.org/abs/2501.08313">MiniMax-M1: Scaling Test-Time Compute</a>. <a href="#fnref:cispo" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+    <li id="fn:vineppo">
+      <p>Kazemnejad et al. (2025). <a href="https://arxiv.org/abs/2410.01679">VinePPO: Refining Credit Assignment</a>. <a href="#fnref:vineppo" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+    <li id="fn:gigpo">
+      <p>Feng et al. (2025). <a href="https://arxiv.org/abs/2504.02763">Grouping in Group Policy Optimization for LLM</a>. <a href="#fnref:gigpo" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+    <li id="fn:reinforcepp">
+      <p>Hu et al. (2025). <a href="https://arxiv.org/abs/2501.03262">REINFORCE++: Stabilizing Critic-Free Policy</a>. <a href="#fnref:reinforcepp" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+    <li id="fn:rloo">
+      <p>Ahmadian et al. (2024). <a href="https://arxiv.org/abs/2402.14740">Back to Basics: Revisiting REINFORCE Style Optimization</a>. <a href="#fnref:rloo" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+  </ol>
+</div>
+
+  </div>
+
+  <a class="u-url" href="/2026/02/09/policy-gradient.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+    <data class="u-url" href="/"></data>
+  
+    <div class="wrapper">
+  
+      <div class="footer-col-wrapper">
+        <div class="footer-col">
+          <ul class="contact-list">
+            <li>hamishiv [at] cs [dot] washington [dot] edu</li>
+          </ul>
+        </div>
+      </div>
+      <div class="social-links"><ul class="social-media-list">
+  
+  <li>
+    <a rel="me" href="https://github.com/hamishivi" aria-label="GitHub" title="GitHub">
+      <svg class="svg-icon" aria-hidden="true"><use href="/assets/social-icons.svg#github"></use></svg>
+    </a>
+  </li>
+  
+  <li>
+    <a rel="me" href="https://www.linkedin.com/in/hamish-ivison-6a17a1118" aria-label="LinkedIn" title="LinkedIn">
+      <svg class="svg-icon" aria-hidden="true"><use href="/assets/social-icons.svg#linkedin"></use></svg>
+    </a>
+  </li>
+  
+  <li>
+    <a rel="me" href="https://twitter.com/hamishivi" aria-label="Twitter" title="Twitter">
+      <svg class="svg-icon" aria-hidden="true"><use href="/assets/social-icons.svg#twitter"></use></svg>
+    </a>
+  </li>
+  
+  <li>
+    <a href="/feed.xml" aria-label="RSS feed" title="RSS feed">
+      <svg class="svg-icon" aria-hidden="true"><use href="/assets/social-icons.svg#rss"></use></svg>
+    </a>
+  </li>
+</ul>
+</div>
+  
+    </div>
+  
+  </footer>
+</body>
+
+</html>

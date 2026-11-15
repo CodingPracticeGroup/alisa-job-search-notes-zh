@@ -1,0 +1,20 @@
+/* 放宽版式：默认整体版心 1440px、正文列 688px，对长文、公式、表格太窄。
+   目标：中栏随浏览器宽度自适应；左右留白由主题自带的 32px 内边距保证。 */
+
+:root {
+  /* 页面版心不再设 1440px 上限；主题中 (100vw - 本值)/2 的布局偏移随之归零 */
+  --vp-layout-max-width: 100%;
+}
+
+/* 去掉"有右侧目录时正文限 688px"的限制，正文列占满中栏 */
+.VPDoc .content-container,
+.VPDoc.has-aside .content-container {
+  max-width: 100% !important;
+}
+
+/* 超宽屏时正文与两侧栏保持间距，避免贴边 */
+@media (min-width: 1280px) {
+  .VPDoc .content {
+    padding: 0 56px 128px;
+  }
+}

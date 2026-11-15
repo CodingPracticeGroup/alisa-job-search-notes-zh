@@ -1,0 +1,895 @@
+<!doctype html>
+<!--
+  Minimal Mistakes Jekyll Theme 4.20.1 by Michael Rose
+  Copyright 2013-2019 Michael Rose - mademistakes.com | @mmistakes
+  Free for personal and commercial use under the MIT license
+  https://github.com/mmistakes/minimal-mistakes/blob/master/LICENSE
+-->
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+
+<!-- begin _includes/seo.html --><title>Lightweight Guide to understanding GRPO and RL principles - Musings of Murali</title>
+<meta name="description" content="A beginner-friendly guide to Group Relative Policy Optimization (GRPO) training workflow without assuming prior RL knowledge.">
+
+
+  <meta name="author" content="Murali Manohar">
+
+
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Musings of Murali">
+<meta property="og:title" content="Lightweight Guide to understanding GRPO and RL principles">
+<meta property="og:url" content="https://gitlostmurali.com/blog/grpo-intro/">
+
+
+  <meta property="og:description" content="A beginner-friendly guide to Group Relative Policy Optimization (GRPO) training workflow without assuming prior RL knowledge.">
+
+
+
+  <meta property="og:image" content="https://gitlostmurali.com/assets/images/grpo-intro/grpo-overview-horizontal.png">
+
+
+
+  <meta name="twitter:site" content="@gitlostmurali">
+  <meta name="twitter:title" content="Lightweight Guide to understanding GRPO and RL principles">
+  <meta name="twitter:description" content="A beginner-friendly guide to Group Relative Policy Optimization (GRPO) training workflow without assuming prior RL knowledge.">
+  <meta name="twitter:url" content="https://gitlostmurali.com/blog/grpo-intro/">
+
+  
+    <meta name="twitter:card" content="summary">
+    
+      <meta name="twitter:image" content="https://gitlostmurali.com/assets/images/grpo-intro/grpo-overview-horizontal.png">
+    
+  
+
+  
+
+
+
+  <meta property="article:published_time" content="2025-09-13T00:00:00+00:00">
+
+
+
+
+
+  
+
+  
+
+
+<link rel="canonical" href="https://gitlostmurali.com/blog/grpo-intro/">
+
+
+
+
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    
+      "@type": "Person",
+      "name": "Murali Manohar",
+      "url": "https://gitlostmurali.com/"
+    
+  }
+</script>
+
+
+
+
+
+
+<!-- end _includes/seo.html -->
+
+
+<link href="/feed.xml" type="application/atom+xml" rel="alternate" title="Musings of Murali Feed">
+
+<!-- https://t.co/dKP3o1e -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script>
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+</script>
+
+<!-- Google Fonts - Beautiful typography -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/assets/css/main.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5/css/all.min.css">
+
+<!--[if IE]>
+  <style>
+    /* old IE unsupported flexbox fixes */
+    .greedy-nav .site-title {
+      padding-right: 3em;
+    }
+    .greedy-nav button {
+      position: absolute;
+      top: 0;
+      right: 0;
+      height: 100%;
+    }
+  </style>
+<![endif]-->
+
+
+
+    <!-- start custom head snippets -->
+
+<!-- insert favicons. use https://realfavicongenerator.net/ -->
+
+<!-- end custom head snippets -->
+
+  </head>
+
+  <body class="layout--single">
+    <nav class="skip-links">
+  <h2 class="screen-reader-text">Skip links</h2>
+  <ul>
+    <li><a href="#site-nav" class="screen-reader-shortcut">Skip to primary navigation</a></li>
+    <li><a href="#main" class="screen-reader-shortcut">Skip to content</a></li>
+    <li><a href="#footer" class="screen-reader-shortcut">Skip to footer</a></li>
+  </ul>
+</nav>
+
+    <!--[if lt IE 9]>
+<div class="notice--danger align-center" style="margin: 0;">You are using an <strong>outdated</strong> browser. Please <a href="https://browsehappy.com/">upgrade your browser</a> to improve your experience.</div>
+<![endif]-->
+
+    
+
+<div class="masthead">
+  <div class="masthead__inner-wrap">
+    <div class="masthead__menu">
+      <nav id="site-nav" class="greedy-nav">
+        
+        <a class="site-title" href="/">
+          Musings of Murali
+          
+        </a>
+        <ul class="visible-links"><li class="masthead__menu-item">
+              <a href="/about/">About</a>
+            </li><li class="masthead__menu-item">
+              <a href="/sort-by-tags/">Category-Wise</a>
+            </li><li class="masthead__menu-item">
+              <a href="/machine-learning/">Machine Learning</a>
+            </li></ul>
+        
+        <button class="greedy-nav__toggle hidden" type="button">
+          <span class="visually-hidden">Toggle menu</span>
+          <div class="navicon"></div>
+        </button>
+        <ul class="hidden-links hidden"></ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+
+    <div class="initial-content">
+      
+
+
+
+<div id="main" role="main">
+  
+
+
+  <article class="page" itemscope itemtype="https://schema.org/CreativeWork">
+    <meta itemprop="headline" content="Lightweight Guide to understanding GRPO and RL principles">
+    <meta itemprop="description" content="A beginner-friendly guide to Group Relative Policy Optimization (GRPO) training workflow without assuming prior RL knowledge.">
+    <meta itemprop="datePublished" content="2025-09-13T00:00:00+00:00">
+    
+
+    <div class="page__inner-wrap">
+      
+        <header>
+          <h1 id="page-title" class="page__title" itemprop="headline">Lightweight Guide to understanding GRPO and RL principles
+</h1>
+          
+
+
+  <p class="page__meta">
+
+    
+
+    
+
+    
+      
+      
+
+      <i class="far fa-clock" aria-hidden="true"></i>
+      
+        8 minute read
+      
+    
+
+  </p>
+
+        </header>
+      
+
+      <section class="page__content" itemprop="text">
+        
+          <aside class="sidebar__right ">
+            <nav class="toc">
+              <details open>
+                <summary><i class="fas fa-file-alt"></i> On this page</summary>
+                <div class="toc__content">
+                  <ul class="toc__menu">
+  <li><a href="#background--motivation">Background &amp; Motivation</a></li>
+  <li><a href="#what-is-grpo">What is GRPO?</a>
+    <ul>
+      <li><a href="#why-advantages">Why Advantages?</a></li>
+      <li><a href="#now-lets-convert-this-to-code">Now, let’s convert this to code.</a></li>
+    </ul>
+  </li>
+  <li><a href="#the-hidden-challenge-training-on-stale-data">The Hidden Challenge: Training on Stale Data</a></li>
+  <li><a href="#why-this-is-a-problem">Why This Is a Problem?</a></li>
+  <li><a href="#the-solution-importance-sampling">The Solution: Importance Sampling</a></li>
+  <li><a href="#adding-safety-rails-the-clipping-mechanism">Adding Safety Rails: The Clipping Mechanism</a></li>
+  <li><a href="#why-not-just-generate-new-data-every-step">Why Not Just Generate New Data Every Step?</a>
+    <ul>
+      <li><a href="#on-policy-training-the-ideal-approach">On-Policy Training (The “Ideal” Approach)</a></li>
+      <li><a href="#off-policy-training-the-economic-approach">Off-Policy Training (The “Economic” Approach)</a></li>
+    </ul>
+  </li>
+  <li><a href="#interesting-developments-in-the-field">Interesting Developments in the field</a>
+    <ul>
+      <li><a href="#1-kl-divergence-disappears">1. KL Divergence disappears</a></li>
+      <li><a href="#2-why-grporl-forgets-less-than-sft">2. Why GRPO/RL Forgets Less than SFT?</a></li>
+      <li><a href="#3-focus-on-the-forking-tokens">3. Focus on the “forking tokens”</a></li>
+    </ul>
+  </li>
+</ul>
+
+                </div>
+              </details>
+            </nav>
+          </aside>
+        
+        <h2 id="background--motivation">Background &amp; Motivation</h2>
+
+<p>This is a mini blog about understanding the GRPO (Group Relative Policy Optimization) training workflow. This is a missing piece I wanted to read before implementing my own workflow.</p>
+
+<p>Most content creators assume the reader to be aware of GRPO’s predecessors like DPO/PPO and then talk about GRPO, which obviously shoos away the people with no prior RL knowledge. If you haven’t touched RL/Reinforcement Learning before, you are at the right place.</p>
+
+<hr />
+
+<h2 id="what-is-grpo">What is GRPO?</h2>
+
+<p>GRPO works on the FAFO principle - Fool Around and Find Out. Here’s a brief overview of how it works: it generates multiple responses to the same prompt, calculates advantages for each response, and then teaches the model to favor responses with higher advantages and push back responses with lesser advantages.</p>
+
+<figure>
+    <a href="https://gitlostmurali.com//assets/images/grpo-intro/grpo-overview-horizontal.png"><img src="https://gitlostmurali.com//assets/images/grpo-intro/grpo-overview-horizontal.png" /></a>
+    <figcaption><b>Figure 1:</b> <i>GRPO Training Workflow Overview</i></figcaption>
+</figure>
+
+<h3 id="why-advantages">Why Advantages?</h3>
+
+<p>Although reward is already signalling if a specific response is better, you want to know how better is the current response compared to other responses for the same query. This is where advantages come in. Advantage is calculated by normalizing the rewards with mean and standard deviation.</p>
+
+<p>The core GRPO objective function is:</p>
+
+<figure>
+    <a href="https://gitlostmurali.com//assets/images/grpo-intro/grpo_full.png"><img src="https://gitlostmurali.com//assets/images/grpo-intro/grpo_full.png" /></a>
+    <figcaption><b>Figure 2:</b> <i>GRPO Objective Function</i></figcaption>
+</figure>
+
+<!-- Where:
+- $G$ is the number of groups
+- $o_i$ represents the $i$-th output sequence in a group
+- $q$ is the input query/prompt
+- $\pi_\theta$ is the current policy being optimized
+- $\pi_{\theta_{old}}$ is the policy from the previous iteration
+- $\hat{A}_{i,t}$ is the advantage estimate at token $t$ for sequence $i$
+- $\varepsilon$ is the clipping parameter (typically 0.2)
+- $\beta$ is the KL divergence coefficient
+- $\pi_{ref}$ is the reference policy
+- $D_{KL}$ is the KL divergence -->
+
+<p>Alright, it’s big and scary. Let’s focus on the atomic unit from above i.e</p>
+
+\[\mathcal{L}_{GRPO} = \frac{1}{G} \sum_{i=1}^{G} \frac{1}{|o_i|} \sum_{t=1}^{|o_i|} \pi_\theta(o_{i,t}|q, o_{i,&lt;t}) \hat{A}_{i,t}\]
+
+<h3 id="now-lets-convert-this-to-code">Now, let’s convert this to code.</h3>
+
+<!-- <figure>
+    <a href="https://gitlostmurali.com//assets/images/grpo-intro/loss_overview_code.png"><img src="https://gitlostmurali.com//assets/images/grpo-intro/loss_overview_code.png"></a>
+    <figcaption><b>Figure 3:</b> <i>Code Implementation of GRPO Loss Calculation</i></figcaption>
+</figure> -->
+
+<p>Basically, we are looping over all generated answers $i = 1$ to $G$. And within each answer, we are looping over all tokens $t = 1$ to $\lvert o_i \rvert$, where $\lvert o_i \rvert$ is the number of tokens in the $i$-th generated answer. So, it’s a two-nested for-loop over $i$ and $t$ against $\pi_\theta$.</p>
+
+<p>And the $\pi_\theta$ in the equation simply refers to the log probabilities of the token \(o_{i,t}\) given the query $q$ and the previous tokens $o_{i,&lt;t}$.</p>
+
+<p>Here’s the code equivalent of the above equation:
+<!-- to $$|o\_i|$$ --></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">each_generated_answer_i</span> <span class="ow">in</span> <span class="n">generated_answers</span><span class="p">:</span> <span class="c1"># G in the equation
+</span>    <span class="n">advantage</span> <span class="o">=</span> <span class="n">calculate_advantage</span><span class="p">(</span><span class="n">each_generated_answer_i</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">each_token_o_t</span> <span class="ow">in</span> <span class="n">each_generated_answer_i</span><span class="p">:</span> <span class="c1"># |o_i| in the equation
+</span>        <span class="n">token_loss</span> <span class="o">=</span> <span class="n">pi_theta</span><span class="p">(</span><span class="n">each_token_o_t</span><span class="p">)</span> <span class="o">*</span> <span class="n">advantage</span>
+
+    <span class="n">loss_of_each_answer</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">tokens_loss_in_answer_i</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">each_generated_answer_i</span><span class="p">)</span>
+
+<span class="n">final_loss</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">loss_of_all_answers</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span> <span class="p">(</span><span class="n">generated_answers</span><span class="p">)</span> <span class="c1"># G in the equation
+</span></code></pre></div></div>
+
+<!-- ```python
+for each_generated_answer_G in generated_answers: # G in the equation
+    for each_token_o_i in each_generated_answer: # |o_i| in the equation
+        loss = pi_theta(each_token_o_i) * advantage
+
+    loss_of_each_answer = sum(losses_of_all_tokens_in_an_answer) / len(each_generated_answer)
+
+final_loss = sum(loss_of_each_answer) / len(generated_answers)
+``` -->
+
+<p>From the figure 3 below (same as figure 2), we can see that the advantage is calculated at sequence level or answer level. So, for each token, the loss is calculated as the product of the log probability of the token $o_{i,t}$ and the advantage ($\hat{A}_{i,t}$):</p>
+
+\[token\_loss = \pi_\theta(o_{i,t}|q, o_{i,&lt;t}) \times \hat{A}_{i,t}\]
+
+<figure>
+    <a href="https://gitlostmurali.com//assets/images/grpo-intro/grpo-overview-horizontal.png"><img src="https://gitlostmurali.com//assets/images/grpo-intro/grpo-overview-horizontal.png" /></a>
+    <figcaption><b>Figure 3:</b> <i>GRPO Workflow Overview</i></figcaption>
+</figure>
+
+<p>Easy! We just implemented the atomic unit of GRPO loss calculation, which is just a two-nested for loop over the token losses of each answer.</p>
+
+\[\mathcal{L}_{GRPO} = \frac{1}{G} \sum_{i=1}^{G} \frac{1}{|o_i|} \sum_{t=1}^{|o_i|} token\_loss\]
+
+<p>where <code class="language-plaintext highlighter-rouge">token_loss</code> is the loss of each token in the answer i.e</p>
+
+\[token\_loss = \pi_\theta(o_{i,t}|q, o_{i,&lt;t}) \times \hat{A}_{i,t}\]
+
+<h2 id="the-hidden-challenge-training-on-stale-data">The Hidden Challenge: Training on Stale Data</h2>
+
+<p>So far, we’ve looked at the basic GRPO loss calculation. But here’s what actually happens during GRPO training that creates an interesting challenge:</p>
+
+<ol>
+  <li>Generate a batch of answers using your current model (let’s say 4 answers per prompt)</li>
+  <li>Calculate advantages for these answers (which one is better/worse)</li>
+  <li>Train on this SAME batch for multiple gradient steps (e.g., 10 steps)</li>
+</ol>
+
+<p>This is problematic because we generate answers ONCE, but train on them MULTIPLE times. This is great for efficiency, but it creates a subtle problem.</p>
+
+<h2 id="why-this-is-a-problem">Why This Is a Problem?</h2>
+
+<p>Think about it: By gradient step 10, your model has changed from all the training. But we’re still using answers that were generated by the model from step 1!</p>
+
+<p>It’s like practicing basketball shots based on a video of yourself from last week. You’ve improved since then, so the video doesn’t represent your current form anymore. This mismatch is called distribution shift or off-policy training.</p>
+
+<p>Here’s what goes wrong if we ignore this:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Generate answers with initial model
+</span><span class="n">answers</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>  <span class="c1"># Model at step 0
+</span><span class="n">advantages</span> <span class="o">=</span> <span class="n">calculate_advantages</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>
+
+<span class="c1"># Train for multiple steps on the SAME answers
+</span><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">log_probs</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="n">get_log_probs</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>  <span class="c1"># Model at step 1, 2, ... 10
+</span>    <span class="n">loss</span> <span class="o">=</span> <span class="n">log_probs</span> <span class="o">*</span> <span class="n">advantages</span>
+    <span class="n">model</span><span class="p">.</span><span class="n">update</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+    <span class="c1"># By step 10, we're calculating gradients as if the current model
+</span>    <span class="c1"># generated these answers, but it didn't! The step-0 model did!
+</span></code></pre></div></div>
+
+<p>This leads to increasingly biased gradients and unstable training. Your model might even “unlearn” good behaviors because it’s confused about where the data came from or why are the gradient updates not working as expected as answers remain constant from step 1 to step 10.</p>
+
+<h2 id="the-solution-importance-sampling">The Solution: Importance Sampling</h2>
+
+<p>This is where $\pi_{\theta_{old}}$ comes to the rescue. We keep track of the log probabilities from the model that ACTUALLY generated the answers (the “old” model), and use them to correct our loss calculation:</p>
+
+\[token\_loss = \frac{\pi_\theta(o_{i,t}|q, o_{i,&lt;t})}{\pi_{\theta_{old}}(o_{i,t}|q, o_{i,&lt;t})} \times \hat{A}_{i,t}\]
+
+<p>This ratio $\frac{\pi_\theta}{\pi_{\theta_{old}}}$ is called the <strong>importance sampling ratio</strong>. It tells us:</p>
+
+<ul>
+  <li>Ratio &gt; 1: Current model likes this token MORE than the old model did → amplify the gradient</li>
+  <li>Ratio &lt; 1: Current model likes this token LESS than the old model did → reduce the gradient</li>
+  <li>Ratio = 1: Both models agree → gradient stays the same</li>
+</ul>
+
+<p>In code:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Generate answers ONCE with initial model
+</span><span class="n">answers</span> <span class="o">=</span> <span class="n">old_model</span><span class="p">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
+<span class="n">old_log_probs</span> <span class="o">=</span> <span class="n">old_model</span><span class="p">.</span><span class="n">get_log_probs</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>  <span class="c1"># Store these!
+</span><span class="n">advantages</span> <span class="o">=</span> <span class="n">calculate_advantages</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>
+
+<span class="c1"># Now we can safely train for multiple steps
+</span><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">current_log_probs</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="n">get_log_probs</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>
+    
+    <span class="c1"># The magic correction factor
+</span>    <span class="n">importance_ratio</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">current_log_probs</span> <span class="o">-</span> <span class="n">old_log_probs</span><span class="p">)</span>
+    
+    <span class="c1"># Corrected loss that accounts for distribution shift
+</span>    <span class="n">loss</span> <span class="o">=</span> <span class="n">importance_ratio</span> <span class="o">*</span> <span class="n">advantages</span>
+    <span class="n">model</span><span class="p">.</span><span class="n">update</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>This correction ensures our gradients remain mathematically valid even though we’re training on “stale” data. It’s like adjusting your basketball practice to account for how much you’ve improved since the video was taken.</p>
+
+<h2 id="adding-safety-rails-the-clipping-mechanism">Adding Safety Rails: The Clipping Mechanism</h2>
+
+<p>But what if this importance ratio becomes extreme? Imagine the current model REALLY disagrees with the old model (ratio = 100 or 0.01). This could cause training to explode or collapse.</p>
+
+<p>GRPO adds a safety mechanism: clip the ratio to stay within reasonable bounds:</p>
+
+\[ratio_{clipped} = \text{clip}(ratio, 1-\varepsilon, 1+\varepsilon)\]
+
+<p>With ε = 0.2 (typical value), the ratio can only vary between 0.8 and 1.2. This prevents any single update from being too aggressive, even if the models strongly disagree.</p>
+
+<p>The full GRPO objective with clipping becomes:</p>
+
+\[\mathcal{L}_{GRPO} = \frac{1}{G} \sum_{i=1}^{G} \frac{1}{|o_i|} \sum_{t=1}^{|o_i|} \min\left(ratio_{i,t} \times \hat{A}_{i,t}, \text{clip}(ratio_{i,t}, 1-\varepsilon, 1+\varepsilon) \times \hat{A}_{i,t}\right)\]
+
+<!-- In plain English: "Use the importance-corrected loss, but if the correction factor gets too wild, clip it to keep training stable." -->
+<p>The clipping is a conservative approach to prioritize stable training over perfect gradient correction.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># With clipping for safety
+</span><span class="n">importance_ratio</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">current_log_probs</span> <span class="o">-</span> <span class="n">old_log_probs</span><span class="p">)</span>
+<span class="n">clipped_ratio</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">clip</span><span class="p">(</span><span class="n">importance_ratio</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">)</span>  <span class="c1"># ε = 0.2
+</span>
+<span class="c1"># Take the minimum of clipped and unclipped objectives
+</span><span class="n">loss_unclipped</span> <span class="o">=</span> <span class="n">importance_ratio</span> <span class="o">*</span> <span class="n">advantages</span>
+<span class="n">loss_clipped</span> <span class="o">=</span> <span class="n">clipped_ratio</span> <span class="o">*</span> <span class="n">advantages</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nb">min</span><span class="p">(</span><span class="n">loss_unclipped</span><span class="p">,</span> <span class="n">loss_clipped</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h2 id="why-not-just-generate-new-data-every-step">Why Not Just Generate New Data Every Step?</h2>
+
+<p>You might wonder: why go through all this complexity with importance sampling and clipping? Why not just generate fresh answers for every gradient step?</p>
+
+<p>This touches on a fundamental concept in reinforcement learning: <strong>on-policy vs off-policy training</strong>. Let’s understand what they mean.</p>
+
+<h3 id="on-policy-training-the-ideal-approach">On-Policy Training (The “Ideal” Approach)</h3>
+
+<p>In on-policy training, you generate new data from your current model for every single gradient update:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">training_steps</span><span class="p">):</span>
+    <span class="c1"># Generate fresh data with current model
+</span>    <span class="n">answers</span> <span class="o">=</span> <span class="n">current_model</span><span class="p">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
+    <span class="n">advantages</span> <span class="o">=</span> <span class="n">calculate_advantages</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>
+    <span class="n">log_probs</span> <span class="o">=</span> <span class="n">current_model</span><span class="p">.</span><span class="n">get_log_probs</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>
+    
+    <span class="c1"># Simple, clean loss calculation
+</span>    <span class="n">loss</span> <span class="o">=</span> <span class="n">log_probs</span> <span class="o">*</span> <span class="n">advantages</span>
+    <span class="n">current_model</span><span class="p">.</span><span class="n">update</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>This is much simpler and mathematically cleaner - your gradients are always calculated with respect to data that your current model actually produced. No distribution shift, no stale data problems.</p>
+
+<h3 id="off-policy-training-the-economic-approach">Off-Policy Training (The “Economic” Approach)</h3>
+
+<p>This is what we saw earlier. In off-policy training, you reuse data that was generated by an older version of your model:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Generate once with current model
+</span><span class="n">answers</span> <span class="o">=</span> <span class="n">current_model</span><span class="p">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
+<span class="n">old_log_probs</span> <span class="o">=</span> <span class="n">current_model</span><span class="p">.</span><span class="n">get_log_probs</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>
+<span class="n">advantages</span> <span class="o">=</span> <span class="n">calculate_advantages</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>  <span class="c1"># Reuse same data for multiple steps
+</span>    <span class="n">new_log_probs</span> <span class="o">=</span> <span class="n">current_model</span><span class="p">.</span><span class="n">get_log_probs</span><span class="p">(</span><span class="n">answers</span><span class="p">)</span>
+    
+    <span class="c1"># Need importance sampling to correct for staleness
+</span>    <span class="n">importance_ratio</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">new_log_probs</span> <span class="o">-</span> <span class="n">old_log_probs</span><span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">importance_ratio</span> <span class="o">*</span> <span class="n">advantages</span>
+    <span class="n">current_model</span><span class="p">.</span><span class="n">update</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>-</th>
+      <th>On-policy</th>
+      <th>Off-policy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pros</td>
+      <td>• Mathematically cleaner (no correction factors needed)<br />• Always training on “fresh” data from current policy<br />• Gradients are exactly what you’d expect</td>
+      <td>• Sample efficient - reuse expensive generations multiple times<br />• Much faster in practice (10x fewer generations needed)<br />• Better compute utilization</td>
+    </tr>
+    <tr>
+      <td>Cons</td>
+      <td>• Extremely expensive! Generating LLM responses requires full forward passes with sampling<br />• Wastes compute - you throw away each batch after one gradient step<br />• Slower convergence in wall-clock time</td>
+      <td>• Requires complex corrections (importance sampling)<br />• Risk of instability if model changes too much<br />• Gradients become approximations rather than exact</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="interesting-developments-in-the-field">Interesting Developments in the field</h2>
+
+<h3 id="1-kl-divergence-disappears">1. KL Divergence disappears</h3>
+
+<p>Notice that <strong>I didn’t cover the KL divergence term</strong> in the objective function. This is because latest research proved that it is not necessary to use KL divergence in the objective function.</p>
+
+<p>If you look at recent GRPO implementations, you’ll notice something interesting: everyone sets <code class="language-plaintext highlighter-rouge">β = 0</code>, effectively removing the KL divergence term entirely! It turns out the clipping mechanism we discussed already prevents the model from changing too drastically. Citing <a href="https://lancelqf.github.io/note/llm_post_training/">Qingfeng’s blog post</a>, “the clipped objective is designed as a replacement of constraint policy optimization in form of the KL divergence term. Thus, adding a KL divergence term is not necessary theoretically”</p>
+
+<h3 id="2-why-grporl-forgets-less-than-sft">2. Why GRPO/RL Forgets Less than SFT?</h3>
+
+<p>The paper [“RL’s Razor” (Shenfeld et al., 2025)(https://arxiv.org/abs/2509.04259)] show that RL fine-tuning, especially on-policy training, forgets less than SFT, even when both reach the same performance
+on new tasks. This is great if you are training on a new task and want to keep the original model’s performance on standard benchmarks.</p>
+
+<h3 id="3-focus-on-the-forking-tokens">3. Focus on the <strong>“forking tokens”</strong></h3>
+
+<p>The paper <a href="https://arxiv.org/pdf/2506.01939">“Beyond the 80/20 Rule” (Wang et al., 2025)</a>  discovered that only ~20% of tokens in reasoning sequences actually matter for learning &amp; thinking exploration. These “forking tokens” at decision points drive nearly all performance gains.</p>
+
+<p>Training on <strong>just these 20% of tokens not only maintains performance but actually improves it</strong>!</p>
+
+<h1 id="conclusion">Conclusion</h1>
+
+<p>This is a lightweight guide to understanding GRPO and RL principles. I hope you found it helpful</p>
+
+        
+      </section>
+
+      <footer class="page__meta">
+        
+        
+
+
+  
+
+
+  
+  
+  
+
+  <p class="page__taxonomy">
+    <strong><i class="fas fa-fw fa-folder-open" aria-hidden="true"></i> Categories: </strong>
+    <span itemprop="keywords">
+    
+      
+      
+      <a href="/categories/#blog" class="page__taxonomy-item" rel="tag">Blog</a>
+    
+    </span>
+  </p>
+
+
+        
+  <p class="page__date"><strong><i class="fas fa-fw fa-calendar-alt" aria-hidden="true"></i> Updated:</strong> <time datetime="2025-09-13T00:00:00+00:00">September 13, 2025</time></p>
+
+
+      </footer>
+
+      <section class="page__share">
+  
+    <h4 class="page__share-title">Share on</h4>
+  
+
+  <a href="https://twitter.com/intent/tweet?via=gitlostmurali&text=Lightweight+Guide+to+understanding+GRPO+and+RL+principles%20https%3A%2F%2Fgitlostmurali.com%2Fblog%2Fgrpo-intro%2F" class="btn btn--twitter" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter"><i class="fab fa-fw fa-twitter" aria-hidden="true"></i><span> Twitter</span></a>
+
+  <a href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fgitlostmurali.com%2Fblog%2Fgrpo-intro%2F" class="btn btn--facebook" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook"><i class="fab fa-fw fa-facebook" aria-hidden="true"></i><span> Facebook</span></a>
+
+  <a href="https://www.linkedin.com/shareArticle?mini=true&url=https%3A%2F%2Fgitlostmurali.com%2Fblog%2Fgrpo-intro%2F" class="btn btn--linkedin" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on LinkedIn"><i class="fab fa-fw fa-linkedin" aria-hidden="true"></i><span> LinkedIn</span></a>
+</section>
+
+
+      
+  <nav class="pagination">
+    
+      <a href="/blog/three-gulfs-of-agent-development/" class="pagination--pager" title="Bridging the Three Gulfs of Agentic Development (and how they shape evals)
+">Previous</a>
+    
+    
+      <a href="/rl-environments" class="pagination--pager" title="An Overview of RL Environments
+">Next</a>
+    
+  </nav>
+
+    </div>
+
+    
+      <div class="page__comments">
+  
+  
+      <h4 class="page__comments-title">Leave a comment</h4>
+      <section id="utterances-comments"></section>
+    
+</div>
+
+    
+  </article>
+
+  
+  
+    <div class="page__related">
+      <h4 class="page__related-title">You may also enjoy</h4>
+      <div class="grid__wrapper">
+        
+          
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/understanding-async-python" rel="permalink">Understanding Async in Python
+</a>
+      
+    </h2>
+    
+
+
+  <p class="page__meta">
+
+    
+
+    
+
+    
+      
+      
+
+      <i class="far fa-clock" aria-hidden="true"></i>
+      
+        18 minute read
+      
+    
+
+  </p>
+
+    <p class="archive__item-excerpt" itemprop="description">A deep dive into Python’s asynchronous programming model - from the event loop to async/await, understanding when and how to write concurrent code
+</p>
+  </article>
+</div>
+
+        
+          
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/rl-environments" rel="permalink">An Overview of RL Environments
+</a>
+      
+    </h2>
+    
+
+
+  <p class="page__meta">
+
+    
+
+    
+
+    
+      
+      
+
+      <i class="far fa-clock" aria-hidden="true"></i>
+      
+        22 minute read
+      
+    
+
+  </p>
+
+    <p class="archive__item-excerpt" itemprop="description">Everything that happens in an RL environment between the policy update and the next rollout - verification, reward shaping, tool calling, curriculum design, ...</p>
+  </article>
+</div>
+
+        
+          
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/blog/three-gulfs-of-agent-development/" rel="permalink">Bridging the Three Gulfs of Agentic Development (and how they shape evals)
+</a>
+      
+    </h2>
+    
+
+
+  <p class="page__meta">
+
+    
+
+    
+
+    
+      
+      
+
+      <i class="far fa-clock" aria-hidden="true"></i>
+      
+        3 minute read
+      
+    
+
+  </p>
+
+    <p class="archive__item-excerpt" itemprop="description">A practical framework for spotting and fixing evaluation blind spots in agentic LLM pipelines, based on Shankar et al.’s Three Gulfs model.
+</p>
+  </article>
+</div>
+
+        
+          
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+      <div class="archive__item-teaser">
+        <img src="/assets/images/interactive-evals/thisisfine_wo_evals.png" alt="">
+      </div>
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/blog/interactive-evals/" rel="permalink">Let Agents do the talking: A Scalable Way to Evaluate Multi-Turn Chatbots
+</a>
+      
+    </h2>
+    
+
+
+  <p class="page__meta">
+
+    
+
+    
+
+    
+      
+      
+
+      <i class="far fa-clock" aria-hidden="true"></i>
+      
+        5 minute read
+      
+    
+
+  </p>
+
+    <p class="archive__item-excerpt" itemprop="description">Interactive evaluations: lightweight, automated tests that use agents to measure multi-turn chatbot quality at scale.
+</p>
+  </article>
+</div>
+
+        
+      </div>
+    </div>
+  
+  
+</div>
+
+    </div>
+
+    
+
+    <div id="footer" class="page__footer">
+      <footer>
+        <!-- start custom footer snippets -->
+
+<!-- end custom footer snippets -->
+        <div class="page__footer-follow">
+  <ul class="social-icons">
+    
+      <li><strong>Follow:</strong></li>
+    
+
+    
+      
+        
+          <li><a href="https://twitter.com/gitlostmurali" rel="nofollow noopener noreferrer"><i class="fab fa-fw fa-twitter-square" aria-hidden="true"></i> Twitter</a></li>
+        
+      
+        
+      
+        
+          <li><a href="https://github.com/gitlost-murali" rel="nofollow noopener noreferrer"><i class="fab fa-fw fa-github" aria-hidden="true"></i> GitHub</a></li>
+        
+      
+        
+      
+        
+      
+        
+      
+    
+
+    <li><a href="/feed.xml"><i class="fas fa-fw fa-rss-square" aria-hidden="true"></i> Feed</a></li>
+  </ul>
+</div>
+
+<div class="page__footer-copyright">&copy; 2026 Murali Manohar. Powered by <a href="https://jekyllrb.com" rel="nofollow">Jekyll</a> &amp; <a href="https://mademistakes.com/work/minimal-mistakes-jekyll-theme/" rel="nofollow">Minimal Mistakes</a>.</div>
+
+      </footer>
+    </div>
+
+    
+  <script src="/assets/js/main.min.js"></script>
+
+
+
+
+
+
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-69T2G3JWJM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-69T2G3JWJM', { 'anonymize_ip': false});
+</script>
+
+
+
+
+
+
+    <script>
+  'use strict';
+
+  (function() {
+    var commentContainer = document.querySelector('#utterances-comments');
+
+    if (!commentContainer) {
+      return;
+    }
+
+    var script = document.createElement('script');
+    script.setAttribute('src', 'https://utteranc.es/client.js');
+    script.setAttribute('repo', 'gitlost-murali/blogs');
+    script.setAttribute('issue-term', 'pathname');
+    script.setAttribute('theme', 'github-light');
+    script.setAttribute('crossorigin', 'anonymous');
+
+    commentContainer.appendChild(script);
+  })();
+</script>
+
+  
+
+
+
+
+
+
+
+
+<script type="text/javascript" async
+src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.6/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
+
+<script type="text/x-mathjax-config">
+ MathJax.Hub.Config({
+   extensions: ["tex2jax.js"],
+   jax: ["input/TeX", "output/HTML-CSS"],
+   tex2jax: {
+     inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+     displayMath: [ ['$$','$$'], ["\\[","\\]"] ],
+     processEscapes: true
+   },
+   "HTML-CSS": { availableFonts: ["TeX"] }
+ });
+</script>
+
+
+  </body>
+</html>
